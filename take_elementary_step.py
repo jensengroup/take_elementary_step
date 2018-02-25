@@ -466,7 +466,7 @@ def take_elementary_step(mol,E_cutoff):
         except:
             continue
         if test_mol != None:
-            energy = get_BO_energy(mol)
+            energy = get_BO_energy(raw_mol)
             if smiles not in smiles_list and energy_of_reactant-energy < E_cutoff:
                 smiles_list.append(smiles)
                 molecules.append(raw_mol)
