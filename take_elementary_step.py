@@ -11,6 +11,9 @@ import numpy as np
 from io import StringIO
 import sys
 #sio = sys.stderr = StringIO()
+from rdkit import rdBase
+print(rdBase.rdkitVersion)
+
 
 
 def getUA(maxValence_list, valence_list):
@@ -62,8 +65,6 @@ def BO_is_OK(BO,AC,charge,DU,atomic_valence_electrons,atomicNumList):
                     q += 1
                 if number_of_single_bonds_to_C == 3 and q + 1 < charge:
                     q += 2
-    #heterolytic
- #   q = 0
     
     if (BO-AC).sum() == sum(DU) and charge == q:
         return True
@@ -459,7 +460,7 @@ def take_elementary_step(mol,E_cutoff):
                 raw_molecules.append(newmol)
     
     energy_of_reactant = get_BO_energy(mol)
-    for smiles,mol in zip(raw_smiles_list,raw_molecules):
+    for smiles,raw_mol in zip(raw_smiles_list,raw_molecules):
         try:
             test_mol = Chem.MolFromSmiles(smiles)
         except:
@@ -468,7 +469,10 @@ def take_elementary_step(mol,E_cutoff):
             energy = get_BO_energy(mol)
             if smiles not in smiles_list and energy_of_reactant-energy < E_cutoff:
                 smiles_list.append(smiles)
-                molecules.append(mol)
+                molecules.append(raw_mol)
+
+    smiles_list.insert(0, Chem.MolToSmiles(mol))
+    molecules.insert(0,mol)
     
     return smiles_list, molecules
 
