@@ -341,7 +341,7 @@ if __name__ == "__main__":
    atomicNumList,charge,xyz_coordinates = read_xyz_file(filename)
    mol = xyz2mol(atomicNumList,charge,xyz_coordinates,charged_fragments)
 
-   print Chem.MolToSmiles(mol,isomeric=True)
+   print Chem.MolToSmiles(mol)
 
 
 # code to test using SMILES instead of xyz file
@@ -363,10 +363,10 @@ if __name__ == "__main__":
 
        newmol = AC2mol(proto_mol,AC,atomicNumList,charge,charged_fragments)
        newmol = Chem.RemoveHs(newmol)
-       newmol_smiles = Chem.MolToSmiles(newmol,isomeric=True)
+       newmol_smiles = Chem.MolToSmiles(newmol)
     
        mol = Chem.RemoveHs(mol)
-       canonical_smiles = Chem.MolToSmiles(mol,isomeric=True)
+       canonical_smiles = Chem.MolToSmiles(mol)
        if newmol_smiles != canonical_smiles:
            print "uh,oh", smiles, newmol_smiles
 
