@@ -9,10 +9,8 @@ from rdkit.Chem import rdmolops
 # base name of the compounds
 # The code currently writes input files for GFN-xTB (basically xyz files). If you want to use another program
 # you need to add code in write_input_files.py.
-smiles_list = [('diels_alder','C=C.C=CC=C')]
+#smiles_list = [('diels_alder','C=C.C=CC=C')]
 smiles_list = [('formic_acid','C(=O)O')]
-#smiles_list = [('ROOR','CC(=O)CO[O].CC(=O)CO[O]')]
-#smiles_list = [('ROOR','CC(=O)COOOOCC(=O)C')]
 
 # Make charged fragments, e.g. CH3O- + H+ instead of CH3O + H
 charged_fragments = False
