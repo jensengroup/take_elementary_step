@@ -65,7 +65,7 @@ def rank_by_energy(e_cut,base_name,entropy_correction):
         e_diff = (energy - reactant_energy)*au_to_kcal
         if e_diff < e_cut:
 #           print name, e_diff, file_name
-            energy_ranked_molecules.append((name,energy,file_name))
+            energy_ranked_molecules.append((name,round(e_diff,1),file_name))
 
     return energy_ranked_molecules
 
@@ -101,7 +101,7 @@ if __name__ == "__main__":
 # The code will find all compounds with an energy less than the reactant plus all compounds with
 # an a higher energy but within "e_cut" kcal/mol. The molecules will be ranked with the lowest 
 # energy compound first
-    e_cut = 100. #kcal/mol
+    e_cut = 20. #kcal/mol
 
 # Rough estimate of the translational entropy correction -TS at 298K which is added to the energy.
 # This is important when comparing the energy of one molecule to that of two, e.g. CH3OH vs CH3O + H
@@ -114,7 +114,7 @@ if __name__ == "__main__":
 
 # It is assumed that the directory name and file names are same, e.g. directory0A for the reactant
     directory = "diels_alder"
-    directory = "ROOR"
+    #directory = "ROOR"
     
     os.chdir(directory)
 
