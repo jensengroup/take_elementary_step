@@ -16,8 +16,8 @@ import sys
 #print(rdBase.rdkitVersion)
 
 
-def get_C(R,num_atoms):
-    C_matrices = []
+def get_I_elementary(R,num_atoms,atomicNumList):
+    I_elementary = []
     C_making = []
     C_breaking = []
     shape = (num_atoms,num_atoms)
@@ -27,12 +27,14 @@ def get_C(R,num_atoms):
             if R[i,j] == 0:
                 C[i,j] = 1
                 C[j,i] = 1
-                C_matrices.append(C)
+                I = R + C
+                if I_is_valid(I,atomicNumList):
+                    I_elementary.append(R+C)
                 C_making.append(C)
             else:
                 C[i,j] = -1
                 C[j,i] = -1
-                C_matrices.append(C)
+                I_elementary.append(R+C)
                 C_breaking.append(C)
     
     break1 = range(len(C_breaking))
@@ -49,33 +51,43 @@ def get_C(R,num_atoms):
         C = np.zeros(shape).astype(int)
         for item in broken:
             C += C_breaking[item]
-        C_matrices.append(C)
+        I = R + C
+        if I_is_valid(I,atomicNumList):
+            I_elementary.append(R+C)
         
     for made in make2:
         C = np.zeros(shape).astype(int)
         for item in made:
             C += C_making[item]
-        C_matrices.append(C)
+        I = R + C
+        if I_is_valid(I,atomicNumList):
+            I_elementary.append(R+C)
         
     for broken, made in break1_make1:
         C = np.zeros(shape).astype(int)
         C += C_breaking[broken]
         C += C_making[made]
-        C_matrices.append(C)
+        I = R + C
+        if I_is_valid(I,atomicNumList):
+            I_elementary.append(R+C)
         
     for broken, made in break1_make2:
         C = np.zeros(shape).astype(int)
         C += C_breaking[broken]
         for item in made:
             C += C_making[item]
-        C_matrices.append(C)
+        I = R + C
+        if I_is_valid(I,atomicNumList):
+            I_elementary.append(R+C)
 
     for broken, made in break2_make1:
         C = np.zeros(shape).astype(int)
         for item in broken:
             C += C_breaking[item]
         C += C_making[made]
-        C_matrices.append(C)
+        I = R + C
+        if I_is_valid(I,atomicNumList):
+            I_elementary.append(R+C)
         
     for broken, made in break2_make2:
         C = np.zeros(shape).astype(int)
@@ -83,19 +95,12 @@ def get_C(R,num_atoms):
             C += C_breaking[item1]
         for item2 in made:
             C += C_making[item2]
-        C_matrices.append(C)
+        I = R + C
+        if I_is_valid(I,atomicNumList):
+            I_elementary.append(R+C)
 
-    return C_matrices
 
-
-def get_I_elementary(R,num_atoms):
-    I_elementary = []
-    C_matrices = get_C(R,num_atoms)
-    for C in C_matrices:
-        I_elementary.append(R+C)
-    
     return I_elementary
-
 
 def get_BO_energy(m):
     patt = Chem.MolFromSmarts("[*]~[*]")
@@ -213,19 +218,18 @@ def take_elementary_step(mol,charge,E_cutoff,heterolytic):
     AC = Chem.GetAdjacencyMatrix(mol)
     
     num_atoms = len(atomicNumList)
-    I_elementary = get_I_elementary(AC,num_atoms)
+    I_elementary = get_I_elementary(AC,num_atoms,atomicNumList)
     
     smiles_list = []
     molecules = []
     raw_smiles_list = []
     raw_molecules = []
     for I in I_elementary:
-        if I_is_valid(I,atomicNumList):
-            newmol = xyz2mol.AC2mol(proto_mol,I,atomicNumList,charge,heterolytic)
-            raw_smiles = Chem.MolToSmiles(newmol)
-            if raw_smiles not in raw_smiles_list:
-                raw_smiles_list.append(raw_smiles)
-                raw_molecules.append(newmol)
+        newmol = xyz2mol.AC2mol(proto_mol,I,atomicNumList,charge,heterolytic)
+        raw_smiles = Chem.MolToSmiles(newmol)
+        if raw_smiles not in raw_smiles_list:
+            raw_smiles_list.append(raw_smiles)
+            raw_molecules.append(newmol)
     
     energy_of_reactant = get_BO_energy(mol)
     for smiles,raw_mol in zip(raw_smiles_list,raw_molecules):
