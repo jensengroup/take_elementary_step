@@ -4,6 +4,7 @@ import os
 import operator
 import xyz2mol
 import read_xtbout_file as xtb
+import read_mopac_file as mopac
 from rdkit import Chem
 
 def shell(cmd, shell=False):
@@ -18,20 +19,26 @@ def shell(cmd, shell=False):
     return output
 
 
-def rank_by_energy(e_cut,base_name,entropy_correction):
+def rank_by_energy(e_cut,base_name,entropy_correction,method):
 # The code will find all compounds with an energy less than the reactant plus all compounds with
 # an a higher energy but within "e_cut" kcal/mol. The molecules will be ranked with the lowest 
 # energy compound first
     energy_ranked_molecules = []
     au_to_kcal = 627.51
 
-# File extention for GFN-xTB output files. Change if usin something else
-    file_names =  shell('ls *.xtbout', shell=True).split("\n")[:-1]
+# File extention for GFN-xTB or MOPAC output files. Change if using something else
+    if method == "xtb":
+        file_names =  shell('ls *.xtbout', shell=True).split("\n")[:-1]
+    if method == "mopac":
+        file_names =  shell('ls *.out', shell=True).split("\n")[:-1]
     
     fragment_energies = {}
     for file_name in file_names:
-# Assumes GFN-xTB output files. You need to write your own parser if you use another program
-        energy = xtb.get_energy(file_name)
+# Assumes GFN-xTB or MOPAC output files. You need to write your own parser if you use another program
+        if method == "xtb":
+            energy = xtb.get_energy(file_name)
+        if method == "mopac":
+            energy = mopac.get_energy(file_name)
         energy += entropy_correction
         fragment = file_name.split("+")[0]
         if fragment not in fragment_energies:
@@ -69,16 +76,18 @@ def rank_by_energy(e_cut,base_name,entropy_correction):
 
     return energy_ranked_molecules
 
-def files2mol(energy_ranked_files,charged_fragments):
-# the code assumes GFN-xTB output files. If you want to use another program substitute
-# read_xtbout_file with your own parser
+def files2mol(energy_ranked_files,charged_fragments,method):
+# the code assumes GFN-xTB or mopac output files. If you want to use another program add another parser
     smiles_list = []
     molecules = []
     for name,energy, file_name in energy_ranked_files:
         fragment_smiles_list = []
         for fragment_file in file_name.split(","):
             try:
-                charge,atomicNumList,xyz_coordinates = xtb.read_xtbout_file(fragment_file)
+                if method == "xtb":
+                    charge,atomicNumList,xyz_coordinates = xtb.read_xtbout_file(fragment_file)
+                if method == "mopac":
+                    charge,atomicNumList,xyz_coordinates = mopac.read_mopac_file(fragment_file)
             except:
                 print fragment_file
             fragment_mol = xyz2mol.xyz2mol(atomicNumList,charge,xyz_coordinates,charged_fragments)
@@ -118,8 +127,12 @@ if __name__ == "__main__":
     
     os.chdir(directory)
 
-    energy_ranked_files = rank_by_energy(e_cut,directory,entropy_correction)
-    energy_ranked_molecules = files2mol(energy_ranked_files,charged_fragments)
+# pick the method you want to use. The choices are currently GFN-xTB and MOPAC
+    #method = "xtb"
+    method = "mopac"
+
+    energy_ranked_files = rank_by_energy(e_cut,directory,entropy_correction,method)
+    energy_ranked_molecules = files2mol(energy_ranked_files,charged_fragments,method)
 
     for name, smiles, energy, file_name in energy_ranked_molecules:
         print name, smiles, energy, file_name
