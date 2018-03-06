@@ -19,6 +19,22 @@ def generate_conformations(fragments, max_confs=20):
     
     return fragments
 
+def write_mopac_input_file(fragment, fragment_name, keywords):
+    number_of_atoms = fragment.GetNumAtoms()
+    charge = Chem.GetFormalCharge(fragment)
+    symbols = [a.GetSymbol() for a in fragment.GetAtoms()] 
+    for i,conf in enumerate(fragment.GetConformers()):
+        file_name = fragment_name+"+"+str(i)+".mop"
+        with open(file_name, "w") as file:
+            file.write(keywords+str(charge)+"\n")
+            file.write(" \n")
+            file.write(" \n")
+            for atom,symbol in enumerate(symbols):
+                p = conf.GetAtomPosition(atom)
+                line = " ".join((symbol,str(p.x),"1",str(p.y),"1",str(p.z),"1","\n"))
+                file.write(line)
+
+
 def write_xtb_input_file(fragment, fragment_name):
     number_of_atoms = fragment.GetNumAtoms()
     charge = Chem.GetFormalCharge(fragment)
@@ -37,7 +53,7 @@ def write_xtb_input_file(fragment, fragment_name):
                 file.write("chrg "+str(charge)+"\n")
                 file.write("$end")
 
-# GFN-xTB automatically switches to UHF if the number of electrons is odd, so there is no need
+# GFN-xTB and MOPAC automatically switches to UHF if the number of electrons is odd, so there is no need
 # to specify the multiplicity.
 # If you need to do that for another program you can compute the number of electrons by
 # atomic_numbers = [a.GetAtomicNum() for a in fragment.GetAtoms()]
@@ -45,19 +61,26 @@ def write_xtb_input_file(fragment, fragment_name):
         
         
 
-def  write_input_files(mol,name):
-# This version writes input files for GFN-xTB. If you want to use another program then replace
-# write_xtb_input_file.
+def  write_input_files(mol,name,method,keywords):
+# This version writes input files for GFN-xTB and MOPAC. If you want to use another program then replace
+# add additional functions
     fragments, fragment_names = get_fragments(mol,name)
     fragments = generate_conformations(fragments)
     for fragment, fragment_name in zip(fragments, fragment_names):
-        write_xtb_input_file(fragment, fragment_name)
+        if method == "xtb":
+            write_xtb_input_file(fragment, fragment_name)
+        if method == "mopac":
+            write_mopac_input_file(fragment, fragment_name,keywords)
 
 
 if __name__ == "__main__":
     smiles = "CCC.CC"
     name = "test"
+    #method = "xtb"
+    #keywords = ""
+    method = "mopac"
+    keywords = "pm3 cycles=200 charge="
     mol = Chem.MolFromSmiles(smiles)
     mol = Chem.AddHs(mol)
     
-    write_input_files(mol,name)
+    write_input_files(mol,name,method,keywords)
