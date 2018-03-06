@@ -28,9 +28,15 @@ for name,smiles in smiles_list:
     mol = Chem.AddHs(mol)
     elementary_smiles, elementary_mols = tes.take_elementary_step(mol,charge,E_cutoff,charged_fragments)
 
+# Choose either GFN-xTB or MOPAC or add code for another program
+    #method = "xtb"
+    #xtb_keywords = ""
+    method = "mopac"
+    keywords = "pm3 cycles=200 charge="
+
 # The first compound in the lists i the starting struture
     for i,(mol,smiles) in enumerate(zip(elementary_mols,elementary_smiles)):
         new_name = name+str(i)
-        wif.write_input_files(mol,new_name)
+        wif.write_input_files(mol,new_name,method,keywords)
         print new_name,smiles
 
