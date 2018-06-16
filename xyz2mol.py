@@ -180,6 +180,7 @@ def AC2BO(AC,atomicNumList,charge,charged_fragments):
     atomic_valence[15] = [5,4,3]
     atomic_valence[16] = [6,4,2]
     atomic_valence[17] = [1]
+    atomic_valence[32] = [4]
     atomic_valence[35] = [1]
     atomic_valence[53] = [1]
     
@@ -194,6 +195,7 @@ def AC2BO(AC,atomicNumList,charge,charged_fragments):
     atomic_valence_electrons[15] = 5
     atomic_valence_electrons[16] = 6
     atomic_valence_electrons[17] = 7
+    atomic_valence_electrons[32] = 4
     atomic_valence_electrons[35] = 7
     atomic_valence_electrons[53] = 7
 
