@@ -261,6 +261,7 @@ def get_atomicNumList(atomic_symbols):
     symbol2number["P"] = 15
     symbol2number["S"] = 16
     symbol2number["Cl"] = 17
+    symbol2number["Ge"] = 32
     symbol2number["Br"] = 35
     symbol2number["I"] = 53
     
