@@ -88,13 +88,20 @@ def clean_charges(mol):
     rxn_smarts = ['[N+:1]=[*:2]-[O-:3]>>[N+0:1]-[*:2]=[O-0:3]',
                   '[N+:1]=[*:2]-[*:3]=[*:4]-[O-:5]>>[N+0:1]-[*:2]=[*:3]-[*:4]=[O-0:5]']
 
-    for smarts in rxn_smarts:
-        patt = Chem.MolFromSmarts(smarts.split(">>")[0])
-        while mol.HasSubstructMatch(patt):
-            rxn = AllChem.ReactionFromSmarts(smarts)
-            ps = rxn.RunReactants((mol,))
-            mol = ps[0][0]
-                    
+    fragments = Chem.GetMolFrags(mol,asMols=True)
+
+    for i,fragment in enumerate(fragments):
+        for smarts in rxn_smarts:
+            patt = Chem.MolFromSmarts(smarts.split(">>")[0])
+            while fragment.HasSubstructMatch(patt):
+                rxn = AllChem.ReactionFromSmarts(smarts)
+                ps = rxn.RunReactants((fragment,))
+                fragment = ps[0][0]
+        if i == 0:
+            mol = fragment
+        else:
+            mol = Chem.CombineMols(mol,fragment)
+                        
     return mol
 
 
@@ -151,7 +158,6 @@ def set_atomic_charges(mol,atomicNumList,atomic_valence_electrons,BO_valences,BO
         if (abs(charge) > 0):
             a.SetFormalCharge(charge)
     #rdmolops.SanitizeMol(mol)
-
     mol = clean_charges(mol)
 
     return mol
@@ -237,7 +243,7 @@ def AC2mol(mol,AC,atomicNumList,charge,charged_fragments):
 
 # add BO connectivity and charge info to mol object
     mol = BO2mol(mol,BO, atomicNumList,atomic_valence_electrons,charge,charged_fragments)
-    
+
     return mol
 
 
@@ -385,6 +391,7 @@ if __name__ == "__main__":
         filename = args.structure
         charged_fragments = True
         atomicNumList,charge,xyz_coordinates = read_xyz_file(filename)
+   
         mol = xyz2mol(atomicNumList,charge,xyz_coordinates,charged_fragments)
 
         # Canonical hack
