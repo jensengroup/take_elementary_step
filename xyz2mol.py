@@ -1,5 +1,4 @@
-from vprof import runner
-#
+##
 # Written by Jan H. Jensen based on this paper Yeonjoon Kim and Woo Youn Kim 
 # "Universal Structure Conversion Method for Organic Molecules: From Atomic Connectivity
 # to Three-Dimensional Geometry" Bull. Korean Chem. Soc. 2015, Vol. 36, 1769-1777 DOI: 10.1002/bkcs.10334
@@ -12,6 +11,45 @@ from collections import defaultdict
 import copy
 
 
+global __ATOM_LIST__
+__ATOM_LIST__ = [ x.strip() for x in ['h ','he', \
+      'li','be','b ','c ','n ','o ','f ','ne', \
+      'na','mg','al','si','p ','s ','cl','ar', \
+      'k ','ca','sc','ti','v ','cr','mn','fe','co','ni','cu', \
+      'zn','ga','ge','as','se','br','kr', \
+      'rb','sr','y ','zr','nb','mo','tc','ru','rh','pd','ag', \
+      'cd','in','sn','sb','te','i ','xe', \
+      'cs','ba','la','ce','pr','nd','pm','sm','eu','gd','tb','dy', \
+      'ho','er','tm','yb','lu','hf','ta','w ','re','os','ir','pt', \
+      'au','hg','tl','pb','bi','po','at','rn', \
+      'fr','ra','ac','th','pa','u ','np','pu'] ]
+
+def get_atoms_min_connectivity(AC,atomicNumList):
+    heavy_atom_connectivity = []
+    for atomic_number, row in zip(atomicNumList,AC):
+        count = 0
+        for bond, atomic_number2 in zip(row,atomicNumList):
+            #print atomicNumList[i]
+            if atomic_number2 != 1 and bond == 1:
+                count += 1
+        if atomic_number == 1:
+            count = 9 # no multiple bonds to H's, so ignore
+        heavy_atom_connectivity.append(count)
+
+    min_connectivity = min(heavy_atom_connectivity)
+    atoms_min_connectivity = []
+    for i,connectivity in enumerate(heavy_atom_connectivity):
+        if connectivity == min_connectivity:
+            atoms_min_connectivity.append(i)
+
+    return atoms_min_connectivity
+
+def get_atom(atom):
+    global __ATOM_LIST__
+    atom = atom.lower()
+    return __ATOM_LIST__.index(atom) + 1
+
+
 def getUA(maxValence_list, valence_list):
     UA = []
     DU = []
@@ -22,10 +60,11 @@ def getUA(maxValence_list, valence_list):
     return UA,DU
 
 
-def get_BO(AC,valences):
+def get_BO(AC,UA_try,DU,valences):
     BO = AC.copy()
-    BO_valence = list(BO.sum(axis=1))
-    UA,DU = getUA(valences, BO_valence)
+    #BO_valence = list(BO.sum(axis=1))
+    #UA,DU = getUA(valences, BO_valence)
+    UA = list(UA_try)
 
     while len(DU) > 1:
         UA_pairs = itertools.combinations(UA, 2)
@@ -40,11 +79,13 @@ def get_BO(AC,valences):
         UA_new, DU_new = getUA(valences, BO_valence)
 
         if DU_new != DU:
-            UA = copy.copy(UA_new)
+            #UA = copy.copy(UA_new)
+            # change the order of UA_new elements to match that in UA_try
+            UA = [UA_i for UA_i in UA_try if UA_i in UA_new]
             DU = copy.copy(DU_new)
         else:
             break
-    
+
     return BO
 
 
@@ -79,15 +120,19 @@ def get_atomic_charge(atom,atomic_valence_electrons,BO_valence):
         charge = 0
     else:
         charge = atomic_valence_electrons - 8 + BO_valence
-          
+
     return charge
 
 def clean_charges(mol):
 # this is a temporary hack. The real solution is to generate several BO matrices in AC2BO and pick the one
 # with the lowest number of atomic charges
 #
+    #print 'clean_charges',Chem.MolToSmiles(mol)
     rxn_smarts = ['[N+:1]=[*:2]-[O-:3]>>[N+0:1]-[*:2]=[O-0:3]',
-                  '[N+:1]=[*:2]-[*:3]=[*:4]-[O-:5]>>[N+0:1]-[*:2]=[*:3]-[*:4]=[O-0:5]']
+                  '[N+:1]=[*:2]-[*:3]=[*:4]-[O-:5]>>[N+0:1]-[*:2]=[*:3]-[*:4]=[O-0:5]',
+                  '[#8:1]=[#6:2]([!-:6])[*:3]=[*:4][#6-:5]>>[*-:1][*:2]([*:6])=[*:3][*:4]=[*+0:5]',
+                  '[O:1]=[c:2][c-:3]>>[*-:1][*:2][*+0:3]',
+                  '[O:1]=[C:2][C-:3]>>[*-:1][*:2]=[*+0:3]']
 
     fragments = Chem.GetMolFrags(mol,asMols=True)
 
@@ -102,7 +147,9 @@ def clean_charges(mol):
             mol = fragment
         else:
             mol = Chem.CombineMols(mol,fragment)
-                        
+
+    #print Chem.MolToSmiles(mol)
+
     return mol
 
 
@@ -157,7 +204,7 @@ def set_atomic_charges(mol,atomicNumList,atomic_valence_electrons,BO_valences,BO
                     charge = 1
 
         if (abs(charge) > 0):
-            a.SetFormalCharge(charge)
+            a.SetFormalCharge(int(charge))
     #rdmolops.SanitizeMol(mol)
     mol = clean_charges(mol)
 
@@ -176,7 +223,8 @@ def set_atomic_radicals(mol,atomicNumList,atomic_valence_electrons,BO_valences):
     return mol
 
 
-def AC2BO(AC,atomicNumList,charge,charged_fragments):
+def AC2BO(AC,atomicNumList,charge,charged_fragments,quick):
+    # TODO
     atomic_valence = defaultdict(list)
     atomic_valence[1] = [1]
     atomic_valence[6] = [4]
@@ -190,7 +238,7 @@ def AC2BO(AC,atomicNumList,charge,charged_fragments):
     atomic_valence[32] = [4]
     atomic_valence[35] = [1]
     atomic_valence[53] = [1]
-    
+
 
     atomic_valence_electrons = {}
     atomic_valence_electrons[1] = 1
@@ -212,34 +260,54 @@ def AC2BO(AC,atomicNumList,charge,charged_fragments):
         valences_list_of_lists.append(atomic_valence[atomicNum])
 
 # convert [[4],[2,1]] to [[4,2],[4,1]]
-    valences_list = itertools.product(*valences_list_of_lists)
+    valences_list = list(itertools.product(*valences_list_of_lists))
+
     best_BO = AC.copy()
+
+    atoms_min_connectivity = get_atoms_min_connectivity(AC,atomicNumList)
 
 # implemenation of algorithm shown in Figure 2
 # UA: unsaturated atoms
 # DU: degree of unsaturation (u matrix in Figure)
 # best_BO: Bcurr in Figure 
 #
+    is_best_BO = True
     for valences in valences_list:
         AC_valence = list(AC.sum(axis=1))
         UA,DU_from_AC = getUA(valences, AC_valence)
         if len(UA) == 0 or BO_is_OK(AC,AC,charge,DU_from_AC,atomic_valence_electrons,atomicNumList,charged_fragments):
             best_BO = AC.copy()
             break
+        
+        UA_atoms_min_connectivity = list(set(atoms_min_connectivity) & set(UA))
+        rest = list(set(UA)-set(UA_atoms_min_connectivity))
+        
+        if quick:
+            UA_atoms_min_connectivity_perm = [UA_atoms_min_connectivity + rest]
         else:
-            BO = get_BO(AC,valences)
+            UA_atoms_min_connectivity_perm = list(itertools.permutations(UA_atoms_min_connectivity))
+
+        UA_perm = [list(a) + rest for a in UA_atoms_min_connectivity_perm]
+
+        #print len(UA_perm)
+        #print UA, UA_perm
+        for UA_try in UA_perm:
+            BO = get_BO(AC,UA_try,DU_from_AC,valences)
             if BO_is_OK(BO,AC,charge,DU_from_AC,atomic_valence_electrons,atomicNumList,charged_fragments):
                 best_BO = BO.copy()
+                is_best_BO = True
                 break
             elif BO.sum() > best_BO.sum():
                     best_BO = BO.copy()
+        if is_best_BO:
+            break
 
     return best_BO,atomic_valence_electrons
 
 
-def AC2mol(mol,AC,atomicNumList,charge,charged_fragments):
+def AC2mol(mol,AC,atomicNumList,charge,charged_fragments,quick):
 # convert AC matrix to bond order (BO) matrix
-    BO,atomic_valence_electrons = AC2BO(AC,atomicNumList,charge,charged_fragments)
+    BO,atomic_valence_electrons = AC2BO(AC,atomicNumList,charge,charged_fragments,quick)
 
 # add BO connectivity and charge info to mol object
     mol = BO2mol(mol,BO, atomicNumList,atomic_valence_electrons,charge,charged_fragments)
@@ -258,27 +326,13 @@ def get_proto_mol(atomicNumList):
 
     return mol
 
+
 def get_atomicNumList(atomic_symbols):
-    symbol2number = {}
-    symbol2number["H"] = 1
-    symbol2number["C"] = 6
-    symbol2number["N"] = 7
-    symbol2number["O"] = 8
-    symbol2number["F"] = 9
-    symbol2number["Si"] = 14
-    symbol2number["P"] = 15
-    symbol2number["S"] = 16
-    symbol2number["Cl"] = 17
-    symbol2number["Ge"] = 32
-    symbol2number["Br"] = 35
-    symbol2number["I"] = 53
-    
     atomicNumList = []
-    
     for symbol in atomic_symbols:
-        atomicNumList.append(symbol2number[symbol])
-    
+        atomicNumList.append(get_atom(symbol))
     return atomicNumList
+
 
 def read_xyz_file(filename):
 
@@ -330,15 +384,15 @@ def xyz2AC(atomicNumList,xyz):
 
     return AC,mol
 
-def xyz2mol(atomicNumList,charge,xyz_coordinates,charged_fragments):
+def xyz2mol(atomicNumList,charge,xyz_coordinates,charged_fragments,quick):
 
 # Get atom connectivity (AC) matrix, list of atomic numbers, molecular charge, 
 # and mol object with no connectivity information
     AC,mol = xyz2AC(atomicNumList,xyz_coordinates)
 
 # Convert AC to bond order matrix and add connectivity and charge info to mol object
-    new_mol = AC2mol(mol,AC,atomicNumList,charge,charged_fragments)
-    
+    new_mol = AC2mol(mol,AC,atomicNumList,charge,charged_fragments,quick)
+
     return new_mol
 
 if __name__ == "__main__":
@@ -347,58 +401,27 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(usage='%(prog)s [options] molecule.xyz')
     parser.add_argument('structure', metavar='structure', type=str)
+    parser.add_argument('-s', '--sdf', action="store_true", help="Dump sdf file")
     args = parser.parse_args()
 
-    if args.structure == "test":
-
-        filename = "ethane.xyz"
-        filename = "acetate.xyz"
     
-        charged_fragments = True
+    filename = args.structure
+    charged_fragments = True # alternatively radicals are made
+    quick = True # try only one combination of UA atoms in AC2BO
 
-        atomicNumList,charge,xyz_coordinates = read_xyz_file(filename)
-        mol = xyz2mol(atomicNumList,charge,xyz_coordinates,charged_fragments)
+    atomicNumList, charge, xyz_coordinates = read_xyz_file(filename)
 
-        print Chem.MolToSmiles(mol)
+    mol = xyz2mol(atomicNumList, charge, xyz_coordinates, charged_fragments, quick)
 
-        # code to test using SMILES instead of xyz file
-        smiles_list = ['C=C([O-])CC','C=C([NH3+])CC','CC(=O)[O-]','C[N+](=O)[O-]','CS(CC)(=O)=O','CS([O-])(=O)=O',
-                    'C=C(C)CC', 'CC(C)CC','C=C(N)CC','C=C(C)C=C','C#CC=C','c1ccccc1','c1ccccc1c1ccccc1',
-                    '[NH3+]CS([O-])(=O)=O','CC(NC)=O','C[NH+]=C([O-])CC[NH+]=C([O-])C','C[NH+]=CC=C([O-])C',
-                    "[C+](C)(C)CC[C-](C)(C)","[CH2][CH2][CH]=[CH][CH2]"]
+    if args.sdf:
+        filename = filename.replace(".xyz", "")
+        filename += ".sdf"
+        writer = Chem.SDWriter(filename)
+        writer.write(mol)
 
-        for smiles in smiles_list:
-            mol = Chem.MolFromSmiles(smiles)
+    # Canonical hack
+    smiles = Chem.MolToSmiles(mol)
+    m = Chem.MolFromSmiles(smiles)
+    smiles = Chem.MolToSmiles(m)
 
-            rdmolops.Kekulize(mol, clearAromaticFlags = True)
-            charge = Chem.GetFormalCharge(mol)
-            mol = Chem.AddHs(mol)
-            atomicNumList = [a.GetAtomicNum() for a in mol.GetAtoms()]
-            proto_mol = get_proto_mol(atomicNumList)
-
-            AC = Chem.GetAdjacencyMatrix(mol)
-
-            newmol = AC2mol(proto_mol,AC,atomicNumList,charge,charged_fragments)
-            newmol = Chem.RemoveHs(newmol)
-            newmol_smiles = Chem.MolToSmiles(newmol)
-            
-            mol = Chem.RemoveHs(mol)
-            canonical_smiles = Chem.MolToSmiles(mol)
-            if newmol_smiles != canonical_smiles:
-                print "uh,oh", smiles, newmol_smiles
-
-    else:
-        filename = args.structure
-        charged_fragments = True
-        atomicNumList,charge,xyz_coordinates = read_xyz_file(filename)
-   
-        mol = xyz2mol(atomicNumList,charge,xyz_coordinates,charged_fragments)
-
-        # Canonical hack
-        smiles = Chem.MolToSmiles(mol)
-        m = Chem.MolFromSmiles(smiles)
-        smiles = Chem.MolToSmiles(m)
-
-        print smiles
-
-
+    print smiles
