@@ -19,6 +19,9 @@ charged_fragments = False
 # structures whose energy is E_cutoff kcal/mol higher than the starting geometry.
 E_cutoff = 100 #kcal/mol
 
+# Option to make only one attempt at assigning bond orders in xyz2mol.py
+quick = True
+
 for name,smiles in smiles_list:
     os.mkdir(name)
     os.chdir(name)
@@ -26,7 +29,7 @@ for name,smiles in smiles_list:
     rdmolops.Kekulize(mol, clearAromaticFlags = True)
     charge = Chem.GetFormalCharge(mol)
     mol = Chem.AddHs(mol)
-    elementary_smiles, elementary_mols = tes.take_elementary_step(mol,charge,E_cutoff,charged_fragments)
+    elementary_smiles, elementary_mols = tes.take_elementary_step(mol,charge,E_cutoff,charged_fragments,True)
 
 # Choose either GFN-xTB or MOPAC or add code for another program
     #method = "xtb"
