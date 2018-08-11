@@ -211,7 +211,7 @@ def I_is_valid(I,atomicNumList):
     return True
 
 
-def take_elementary_step(mol,charge,E_cutoff,heterolytic):
+def take_elementary_step(mol,charge,E_cutoff,heterolytic,quick):
     atomicNumList = [a.GetAtomicNum() for a in mol.GetAtoms()]
     proto_mol = xyz2mol.get_proto_mol(atomicNumList)
 
@@ -225,8 +225,8 @@ def take_elementary_step(mol,charge,E_cutoff,heterolytic):
     raw_smiles_list = []
     raw_molecules = []
     for I in I_elementary:
-        newmol = xyz2mol.AC2mol(proto_mol,I,atomicNumList,charge,heterolytic)
-        raw_smiles = Chem.MolToSmiles(newmol)
+        newmol = xyz2mol.AC2mol(proto_mol,I,atomicNumList,charge,heterolytic,quick)
+        raw_smiles = Chem.MolToSmiles(newmol,isomericSmiles=True)
         if raw_smiles not in raw_smiles_list:
             raw_smiles_list.append(raw_smiles)
             raw_molecules.append(newmol)
@@ -243,7 +243,7 @@ def take_elementary_step(mol,charge,E_cutoff,heterolytic):
                 smiles_list.append(smiles)
                 molecules.append(raw_mol)
 
-    smiles_list.insert(0, Chem.MolToSmiles(mol))
+    smiles_list.insert(0, Chem.MolToSmiles(mol,isomericSmiles=True))
     molecules.insert(0,mol)
     
     return smiles_list, molecules
@@ -253,16 +253,18 @@ if __name__ == "__main__":
     smiles_list = ['CC','C=C','C#C']
     smiles_list = ['C=C.C=CC=C']
     smiles_list = ['C(=O)O']
+    smiles_list = ['C[C@@](C(=C)C=C)(F)O']
 
     heterolytic = False
     E_cutoff = 200
+    quick = True
 
     for smiles in smiles_list:
         mol = Chem.MolFromSmiles(smiles)
         rdmolops.Kekulize(mol, clearAromaticFlags = True)
         charge = Chem.GetFormalCharge(mol)
         mol = Chem.AddHs(mol)
-        elementary_smiles, elementary_mols = take_elementary_step(mol,charge,E_cutoff,heterolytic)
+        elementary_smiles, elementary_mols = take_elementary_step(mol,charge,E_cutoff,heterolytic,quick)
 
         print "len(elementary_smiles)",len(elementary_smiles)
         print elementary_smiles
