@@ -4,6 +4,7 @@ from rdkit import Chem
 from rdkit.Chem import AllChem
 import itertools
 from rdkit.Chem import rdmolops
+from rdkit.Chem import rdFMCS
 from collections import defaultdict
 import copy
 import time
@@ -210,8 +211,47 @@ def I_is_valid(I,atomicNumList):
     
     return True
 
+def set_chirality(mol,newmol,atom2chirality):
+    Chem.SanitizeMol(newmol)
+    chiral = Chem.FindMolChiralCenters(newmol, includeUnassigned=True)
+    mol_is_chiral = len(chiral) > 0
+    if not mol_is_chiral:
+        return newmol
+
+    # Find maximum common substructure (MCS)
+    res = rdFMCS.FindMCS([newmol,mol])
+    mcs = Chem.MolFromSmarts(res.smartsString)
+    mcs_newmol = newmol.GetSubstructMatch(mcs)
+    mcs_mol = mol.GetSubstructMatch(mcs)
+
+    atom_map = {key: value for (key, value) in zip(mcs_newmol,mcs_mol)}
+  
+    for atom, x in chiral:
+    
+        # Chirality conserved only if entire chiral center (center atom + neighbourgs) matches 
+        # that in parent. 
+        try:
+            neighbourgs = [atom_map[a.GetIdx()] for a in newmol.GetAtomWithIdx(atom).GetNeighbors()]
+            neighbourgs_parent = [a.GetIdx() for a in mol.GetAtomWithIdx(atom_map[atom]).GetNeighbors()]
+        except:
+            continue
+
+        if sorted(neighbourgs) == sorted(neighbourgs_parent):
+            if atom2chirality[atom_map[atom]] == 'R':
+                newmol.GetAtomWithIdx(atom).SetChiralTag(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CW)
+            else:
+                newmol.GetAtomWithIdx(atom).SetChiralTag(Chem.rdchem.ChiralType.CHI_TETRAHEDRAL_CCW)
+
+    return newmol
+
+
 
 def take_elementary_step(mol,charge,E_cutoff,heterolytic,quick):
+    chiral_parent = Chem.FindMolChiralCenters(mol, includeUnassigned=True)
+    parent_is_chiral = len(chiral_parent) > 0
+    if parent_is_chiral:
+        atom2chirality = {key: value for (key, value) in chiral_parent}
+
     atomicNumList = [a.GetAtomicNum() for a in mol.GetAtoms()]
     proto_mol = xyz2mol.get_proto_mol(atomicNumList)
 
@@ -226,6 +266,9 @@ def take_elementary_step(mol,charge,E_cutoff,heterolytic,quick):
     raw_molecules = []
     for I in I_elementary:
         newmol = xyz2mol.AC2mol(proto_mol,I,atomicNumList,charge,heterolytic,quick)
+        if parent_is_chiral:
+            newmol = set_chirality(mol,newmol,atom2chirality) 
+
         raw_smiles = Chem.MolToSmiles(newmol,isomericSmiles=True)
         if raw_smiles not in raw_smiles_list:
             raw_smiles_list.append(raw_smiles)
